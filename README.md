@@ -2,7 +2,7 @@
 
 An interactive silicon process simulator that runs in the browser. Grow a thermal oxide, implant a dopant, anneal it, and watch the physics play out, with every numerical result checked against an exact solution.
 
-**Live demo:** https://YOUR-USERNAME.github.io/virtual-fab/
+**Live demo:** https://theocen8.github.io/Virtual-Fab/
 
 ![Virtual Fab screenshot](docs/screenshot.png)
 
