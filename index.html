@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Virtual Fab Stage 1</title>
+<meta name="description" content="Interactive silicon process simulator: Deal–Grove oxidation, ion implantation and finite-difference dopant diffusion, validated against exact solutions.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="band hero">
+  <div class="wrap top">
+    <div>
+    <h1>Virtual Fab</h1>
+    <p class="lede">Stage 1 of a silicon process simulator. Grow an oxide, implant a dopant, anneal it, and watch the physics play out. Everything is computed live in your browser from published rate constants, and checked against exact solutions.</p>
+    <nav class="links"><a href="#oxidation">Thermal oxidation</a><a href="#diffusion">Implant and diffusion</a><a href="#method">How it works</a></nav>
+    </div>
+    <aside class="trav" aria-label="Project roadmap">
+      <h3>Process traveler</h3>
+      <ol>
+        <li><b>Stage 1</b><span>Oxidation, implant and diffusion, each checked against an exact solution</span><span class="st on">This page</span></li>
+        <li><b>Stage 2</b><span>Couple them: dopant segregation at the moving oxide interface, oxidation-enhanced diffusion, sheet resistance</span><span class="st">Next</span></li>
+        <li><b>Stage 3</b><span>2D cross-section of a MOSFET flow, with lateral diffusion under the mask edge</span><span></span></li>
+        <li><b>Stage 4</b><span>Validate against SRIM and published SIMS profiles; write-up and demo video</span><span></span></li>
+      </ol>
+    </aside>
+  </div>
+</header>
+
+<section class="band" id="oxidation">
+  <div class="wrap">
+    <h2>Oxide grows fast, then slows as oxygen must diffuse through it</h2>
+    <p class="sub">The Deal–Grove model: oxidant reacts with silicon at the Si/SiO₂ interface. Thin oxides grow at a constant rate; thick ones grow as √t because the oxidant has to cross the oxide first. The oxide eats into the wafer as it grows.</p>
+    <div class="mod">
+      <div class="pic">
+        <div class="card">
+          <div class="xs-row">
+            <figure class="wafer">
+              <svg viewBox="0 0 220 226" role="img" aria-label="Wafer seen from above, in its oxide colour">
+                <defs>
+                  <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset=".42" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient>
+                </defs>
+                <circle cx="117" cy="117" r="100" fill="#000" opacity=".13"/>
+                <circle id="waferDisc" cx="110" cy="110" r="100" fill="#bcc1ce"/>
+                <circle cx="110" cy="110" r="100" fill="url(#sheen)"/>
+                <circle cx="110" cy="110" r="99.5" fill="none" stroke="#000" stroke-opacity=".25"/>
+                <circle cx="110" cy="210" r="6" style="fill:var(--surf)"/>
+              </svg>
+              <figcaption id="waferCap">Seen from above</figcaption>
+            </figure>
+            <div class="fig xs"><svg id="xsSvg" role="img" aria-label="Cross-section: oxide growing on silicon"></svg></div>
+          </div>
+          <div class="fig chip"><svg id="chipSvg" role="img" aria-label="Oxide colour chart from 0 to 1 micrometre"></svg></div>
+          <p class="cap">The dashed line is the original silicon surface: 44% of the oxide's thickness sits below it, where silicon was consumed. Below that, an oxide colour chart from 0 to 1 µm, computed from thin-film interference using the optical constants of SiO₂ and Si. Fab engineers still estimate oxide thickness this way at a glance. The marker is this wafer.</p>
+        </div>
+        <div class="card">
+          <div class="legend" id="gLegend"></div>
+          <div class="fig growth"><svg id="growthSvg" role="img" aria-label="Oxide thickness versus time, log-log"></svg><div class="tip" id="gTip"></div></div>
+          <p class="cap">Log–log axes, so a slope of 1 is linear growth and a slope of ½ is parabolic. Hover for values.</p>
+        </div>
+      </div>
+      <div class="read" aria-live="polite">
+        <div class="big"><span id="oxBig">–</span><small id="oxBigLab">oxide</small></div>
+        <dl class="kv">
+          <div><dt>Silicon consumed</dt><dd id="oxCons">–</dd></div>
+          <div><dt>Growth rate now</dt><dd id="oxRate">–</dd></div>
+          <div><dt>Regime</dt><dd id="oxReg">–</dd></div>
+          <div><dt>Linear rate B/A</dt><dd id="oxBA">–</dd></div>
+          <div><dt>Parabolic rate B</dt><dd id="oxB">–</dd></div>
+          <div><dt>Time offset τ</dt><dd id="oxTau">–</dd></div>
+        </dl>
+      </div>
+      <div class="ctl" id="oxCtl">
+        <div class="lab">Ambient</div>
+        <div class="seg"><label><input type="radio" name="oxAmb" value="dry"><span>Dry O₂</span></label><label><input type="radio" name="oxAmb" value="wet" checked><span>Steam (H₂O)</span></label></div>
+        <div class="lab">Wafer orientation</div>
+        <div class="seg"><label><input type="radio" name="oxOri" value="100" checked><span>(100)</span></label><label><input type="radio" name="oxOri" value="111"><span>(111)</span></label></div>
+        <div class="lab"><label for="oxT">Temperature</label><output id="oxTOut"></output></div>
+        <input type="range" id="oxT" min="700" max="1200" step="5">
+        <div class="lab"><label for="oxTime">Time</label><output id="oxTimeOut"></output></div>
+        <input type="range" id="oxTime" min="0" max="1000" step="1">
+        <div class="lab"><label for="oxXi">Starting oxide</label><output id="oxXiOut"></output></div>
+        <input type="range" id="oxXi" min="0" max="100" step="1">
+        <label class="chk" id="oxFastLab"><input type="checkbox" id="oxFast"><span>Dry only: include Deal–Grove's fast early growth (treat the first 25 nm as already grown)</span></label>
+        <div class="btns"><button class="btn" id="oxPlay" type="button">Play growth</button><button class="btn ghost" id="oxReset" type="button">Reset</button></div>
+        <h3>Presets</h3>
+        <div class="btns" id="oxPresets">
+          <button class="btn ghost" type="button" data-p='{"r:oxAmb":"dry","oxT":1000,"oxTime":0.5,"oxXi":0}'>Pad oxide</button>
+          <button class="btn ghost" type="button" data-p='{"r:oxAmb":"wet","oxT":1000,"oxTime":0.6667,"oxXi":0}'>Masking oxide</button>
+          <button class="btn ghost" type="button" data-p='{"r:oxAmb":"wet","oxT":1100,"oxTime":2,"oxXi":0}'>Field oxide</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="diffusion">
+  <div class="wrap">
+    <h2>An anneal spreads the implant by about √(Dt) and drives the junction deeper</h2>
+    <p class="sub">Ion implantation drops a Gaussian of dopant just under the surface. A high-temperature anneal lets it diffuse, following Fick's second law. Here a finite-difference solver does the work, and the exact solution is drawn over it so you can see how good, or how unstable, the numerics are.</p>
+    <div class="mod">
+      <div class="pic">
+        <div class="warn" id="dfWarn" hidden></div>
+        <div class="card">
+          <div class="legend"><b>Concentration (cm⁻³) vs depth (µm)</b><span><i class="lk num"></i>Finite-difference solution</span><span><i class="lk ex"></i>Exact solution</span><span id="lgT0"><i class="lk mute"></i>As implanted</span><span><i class="lk sub"></i>Substrate doping</span></div>
+          <div class="fig prof"><svg id="profSvg" role="img" aria-label="Dopant concentration versus depth"></svg><div class="tip" id="pTip"></div></div>
+          <div class="scrub"><button class="btn" id="dfPlay" type="button">Play anneal</button><input type="range" id="dfFrame" min="0" max="90" step="1" aria-label="Anneal time shown"><output id="dfFrameOut"></output></div>
+          <p class="note" id="dfNote" hidden></p>
+          <p class="cap">The strip under the plot is the wafer slice, coloured by net doping: darkest where doping is highest, pale at the junction where the dopant just cancels the substrate.</p>
+        </div>
+      </div>
+      <div class="read" aria-live="polite">
+        <div class="big"><span id="dfBig">–</span><small id="dfBigLab">junction depth</small></div>
+        <dl class="kv">
+          <div><dt>Junction, exact</dt><dd id="dfXjE">–</dd></div>
+          <div><dt>Peak concentration</dt><dd id="dfPk">–</dd></div>
+          <div><dt>Diffusivity D</dt><dd id="dfD">–</dd></div>
+          <div><dt>Diffusion length</dt><dd id="dfLd">–</dd></div>
+          <div><dt>Solver vs exact</dt><dd id="dfErr">–</dd></div>
+          <div><dt>Dose in silicon</dt><dd id="dfDose">–</dd></div>
+          <div><dt>r = DΔt/Δx²</dt><dd id="dfR">–</dd></div>
+        </dl>
+      </div>
+      <div class="ctl" id="dfCtl">
+        <div class="lab">Process</div>
+        <div class="seg"><label><input type="radio" name="dfMode" value="imp" checked><span>Implant + anneal</span></label><label><input type="radio" name="dfMode" value="pre"><span>Predeposition</span></label></div>
+        <div class="lab">Dopant</div>
+        <div class="seg"><label><input type="radio" name="dfSp" value="B" checked><span>B (p)</span></label><label><input type="radio" name="dfSp" value="P"><span>P (n)</span></label><label><input type="radio" name="dfSp" value="As"><span>As (n)</span></label><label><input type="radio" name="dfSp" value="Sb"><span>Sb (n)</span></label></div>
+        <div data-mode="imp">
+          <div class="lab"><label for="dfE">Implant energy</label><output id="dfEOut"></output></div>
+          <input type="range" id="dfE" min="10" max="200" step="5">
+          <div class="lab"><label for="dfDose">Dose</label><output id="dfDoseOut"></output></div>
+          <input type="range" id="dfDose" min="0" max="1000" step="1">
+        </div>
+        <div data-mode="pre" hidden>
+          <div class="lab"><label for="dfCs">Surface concentration</label><output id="dfCsOut"></output></div>
+          <input type="range" id="dfCs" min="0" max="1000" step="1">
+        </div>
+        <div class="lab"><label for="dfNB">Substrate doping</label><output id="dfNBOut"></output></div>
+        <input type="range" id="dfNB" min="0" max="1000" step="1">
+        <div class="lab"><label for="dfT">Anneal temperature</label><output id="dfTOut"></output></div>
+        <input type="range" id="dfT" min="800" max="1200" step="5">
+        <div class="lab"><label for="dfTime">Anneal time</label><output id="dfTimeOut"></output></div>
+        <input type="range" id="dfTime" min="0" max="1000" step="1">
+        <h3>Numerical method</h3>
+        <div class="seg"><label><input type="radio" name="dfMeth" value="cn" checked><span>Crank–Nicolson</span></label><label><input type="radio" name="dfMeth" value="be"><span>Implicit</span></label><label><input type="radio" name="dfMeth" value="ftcs"><span>Explicit</span></label></div>
+        <div class="lab"><label for="dfSteps">Time steps</label><output id="dfStepsOut"></output></div>
+        <input type="range" id="dfSteps" min="0" max="1000" step="1">
+        <div class="lab"><label for="dfNx">Grid points</label><output id="dfNxOut"></output></div>
+        <input type="range" id="dfNx" min="101" max="1201" step="50">
+        <div class="lab">Vertical scale</div>
+        <div class="seg"><label><input type="radio" name="dfScale" value="log" checked><span>Log</span></label><label><input type="radio" name="dfScale" value="lin"><span>Linear</span></label></div>
+        <div class="btns"><button class="btn ghost" id="dfStable" type="button">Set r to 0.45</button><button class="btn ghost" id="dfReset" type="button">Reset</button></div>
+        <h3>Presets</h3>
+        <div class="btns" id="dfPresets">
+          <button class="btn ghost" type="button" data-p='{"r:dfMode":"imp","r:dfSp":"B","dfE":100,"dfDose":1e13,"dfNB":1e15,"dfT":1100,"dfTime":4,"r:dfMeth":"cn","dfSteps":200,"dfNx":301}'>Boron well drive</button>
+          <button class="btn ghost" type="button" data-p='{"r:dfMode":"imp","r:dfSp":"As","dfE":40,"dfDose":2e15,"dfNB":1e17,"dfT":950,"dfTime":0.3333,"r:dfMeth":"cn","dfSteps":200,"dfNx":301}'>Arsenic source/drain</button>
+          <button class="btn ghost" type="button" data-p='{"r:dfMode":"pre","r:dfSp":"P","dfCs":1e20,"dfNB":1e15,"dfT":950,"dfTime":0.5,"r:dfMeth":"cn","dfSteps":400,"dfNx":301}'>Phosphorus predep</button>
+          <button class="btn ghost" type="button" data-p='{"r:dfMeth":"ftcs","dfSteps":200}'>Break the explicit solver</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band method" id="method">
+  <div class="wrap">
+    <h2>How it works, how it is checked, and what it leaves out</h2>
+    <div class="cols">
+      <div>
+        <h3>The models</h3>
+        <p>Oxide thickness x solves the Deal–Grove relation, with Arrhenius rate constants for dry O₂ or steam:</p>
+        <p class="eq">x² + A·x = B·(t + τ)&nbsp;&nbsp;&nbsp;B = C₁e<sup>−E₁/kT</sup>, B/A = C₂e<sup>−E₂/kT</sup></p>
+        <p>For (100) silicon, C₂ is divided by 1.68. Silicon consumed is 0.44·x. The wafer colour comes from reflectance of air / SiO₂ / Si, integrated against the CIE colour-matching functions.</p>
+        <p>An implant is a Gaussian set by projected range Rp and straggle ΔRp. The anneal solves Fick's second law with a θ-scheme on a uniform grid:</p>
+        <p class="eq">∂C/∂t = D ∂²C/∂x²&nbsp;&nbsp;&nbsp;(I − θrA)Cⁿ⁺¹ = (I + (1−θ)rA)Cⁿ</p>
+        <p>θ = 0 is explicit, ½ is Crank–Nicolson, 1 is fully implicit. Each step is a tridiagonal solve. The explicit scheme is only stable for r ≤ ½.</p>
+      </div>
+      <div class="val">
+        <h3>How it is checked</h3>
+        <ul>
+          <li>The finite-difference profile is compared with the exact solution at every frame: a Gaussian with σ² = ΔRp² + 2Dt plus its mirror image at the surface, or C<sub>s</sub>·erfc(x/2√(Dt)) for predeposition. Current max error: <b id="vErr">–</b> of the peak.</li>
+          <li>Junction depth, solver vs exact: <b id="vXj">–</b>.</li>
+          <li>Dopant dose is conserved by the zero-flux surface. Current dose error: <b id="vDose">–</b>.</li>
+          <li>Halving Δt cuts the Crank–Nicolson error about 4× and the implicit error about 2×, confirming second- and first-order accuracy in time.</li>
+          <li>The computed oxide colours line up with the standard colour chart: about 50 nm tan, 120 nm royal blue, 150 nm light blue, 200 nm gold, 300 nm blue.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>What it leaves out</h3>
+        <ul>
+          <li>Dry oxides under about 25 nm grow faster than Deal–Grove predicts (the Massoud regime); the checkbox is the classic workaround.</li>
+          <li>Pressure, chlorine and doping effects on oxidation rate.</li>
+          <li>Oxidation and diffusion are separate here: no dopant segregation at the moving interface, and no oxidation-enhanced diffusion.</li>
+          <li>Diffusivities are intrinsic. Heavy doping and implant damage make real profiles diffuse faster (concentration-dependent and transient-enhanced diffusion).</li>
+          <li>Implants are symmetric Gaussians with no channeling; real profiles are skewed (Pearson IV) and best taken from SRIM or Monte Carlo.</li>
+          <li>One dimension only, so no lateral spread under a mask edge yet.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="src">
+      <strong>Sources</strong>
+      <ol>
+        <li>B. E. Deal and A. S. Grove, “General relationship for the thermal oxidation of silicon,” J. Appl. Phys. 36, 3770 (1965). <a href="https://doi.org/10.1063/1.1713945">doi.org/10.1063/1.1713945</a></li>
+        <li>Deal–Grove Arrhenius constants and the 1.68 orientation factor, as tabulated in C. Hollauer, PhD thesis, TU Wien (2007). <a href="https://www.iue.tuwien.ac.at/phd/hollauer/node16.html">iue.tuwien.ac.at</a></li>
+        <li>H. Z. Massoud, “Thermal oxidation of silicon in dry oxygen,” J. Electrochem. Soc. 132, 1745 (1985). <a href="https://doi.org/10.1149/1.2114204">doi.org/10.1149/1.2114204</a></li>
+        <li>R. B. Fair, intrinsic diffusivities of B, P, As and Sb with neutral and charged-vacancy terms, in Impurity Doping Processes in Silicon (1981).</li>
+        <li>J. F. Gibbons, W. S. Johnson and S. W. Mylroie, Projected Range Statistics (LSS tables), 2nd ed. (1975).</li>
+        <li>C. Wyman, P.-P. Sloan and P. Shirley, “Simple analytic approximations to the CIE XYZ color matching functions,” JCGT 2(2) (2013). <a href="https://jcgt.org/published/0002/02/01/">jcgt.org</a></li>
+        <li>M. A. Green, “Self-consistent optical parameters of intrinsic silicon,” Sol. Energy Mater. Sol. Cells 92, 1305 (2008).</li>
+        <li>K. Misiakos and D. Tsamakis, intrinsic carrier density of Si vs temperature, J. Appl. Phys. 74, 3293 (1993).</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<footer class="band"><div class="wrap">Virtual Fab, Stage 1. Next up: couple oxidation to diffusion, add sheet resistance, then a 2D cross-section with lateral diffusion under a mask.</div></footer>
+
+<script src="js/physics.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
